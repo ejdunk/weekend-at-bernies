@@ -47,8 +47,20 @@ jobs:
         git add daily_data.json commit_log.txt
         if ! git diff --staged --quiet; then
           git commit -m "Update daily commit data files"
-          git push
         fi
+        # GitHub occasionally rejects a push with a transient server error
+        # ("! [remote rejected] main -> main (failed)"), so retry a few times.
+        # Pushing even when nothing was committed above also sends any commits
+        # left behind if the push inside daily_commit.py failed.
+        for attempt in 1 2 3; do
+          if git push; then
+            exit 0
+          fi
+          echo "Push attempt $attempt failed, retrying in $((attempt * 5))s..."
+          sleep $((attempt * 5))
+          git pull --rebase
+        done
+        git push # last attempt: if this fails, the step fails
     
     - name: Display commit status
       run: |
